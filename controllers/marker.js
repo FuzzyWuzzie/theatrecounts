@@ -32,7 +32,7 @@ module.exports = function(markerModel) {
 		get: function(req, res, next) {
 			var offset = (req.params.offset == parseInt(req.params.offset)) ? req.params.offset : 0;
 			markerModel.findAll({
-				limit: 100,
+				limit: 2000,
 				offset: offset,
 				order: 'id ASC'
 			}).then(function(markers) {

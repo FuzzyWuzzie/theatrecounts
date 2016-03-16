@@ -1,64 +1,278 @@
 <!doctype html>
 <html lang="en">
   <head>
-    <link rel="stylesheet" href="http://openlayers.org/en/v3.14.2/css/ol.css" type="text/css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/ol3/3.14.2/ol.min.css" type="text/css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/semantic-ui/2.1.8/semantic.min.css" type="text/css">
     <style>
-      .map {
-        height: 400px;
+      html, body, .map {
+        height: 100%;
         width: 100%;
       }
+      #tooltip {
+        position: absolute;
+        top: 0px;
+        left: 0px;
+      }
+      #prompt {
+        position: absolute;
+        top: 0px;
+        left: 50%;
+        margin-left: -5rem;
+        width: 10rem;
+        text-align: center;
+      }
     </style>
-    <script src="http://openlayers.org/en/v3.14.2/build/ol.js" type="text/javascript"></script>
-    <title>OpenLayers 3 example</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.2.1/jquery.min.js" type="text/javascript"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ol3/3.14.2/ol.min.js" type="text/javascript"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/semantic-ui/2.1.8/semantic.min.js" type="text/javascript"></script>
+    <title>Theatre Counts</title>
   </head>
   <body>
-    <h2>My Map</h2>
+  <div class="ui popup" id="tooltip"></div>
     <div id="map" class="map"></div>
+    <div class="ui raised segment" id="prompt">
+      <p><a href="#" onclick="$('.ui.modal').modal('show');">Be counted!</a><br>
+      <small>(or double click!)</small></p>
+    </div>
+    <div class="ui modal">
+      <div class="header">Be Counted!</div>
+      <div class="blurring content">
+        <div class="ui dimmer"><div class="ui text loader">Saving</div></div>
+        <form class="ui form" method="post" action="/api/v0.1.0/markers">
+        <input type="hidden" name="latitude" id="_lat" value="">
+        <input type="hidden" name="longitude" id="_lon" value="">
+          <div class="field">
+            <label>Where you are:</label>
+            <div class="ui action input">
+              <input type="text" id="_where" name="where" placeholder="Percy Page Centre, Edmonton">
+              <a id="_address_search" class="ui primary right icon button"><i class="search icon"></i></a>
+              <a id="_get_location" class="ui primary right icon button"><i class="location arrow icon"></i></a>
+            </div>
+            <div id="_did_you_mean" style="display: none">
+              <p>Did you mean:</p>
+              <ul>
+              </ul>
+            </div>
+          </div>
+          <div class="field">
+            <label>What you do:</label>
+            <input type="text" id="_description" name="description" placeholder="theatre company, constume maker, administrator, etc">
+          </div>
+          <div class="field">
+            <label>Your name (<b>OPTIONAL</b>):</label>
+            <input type="text" id="_name" name="name" placeholder="Sally Smith">
+          </div>
+          <button class="ui button primary" type="submit">Count me!</button>
+          <a class="ui button" onclick="$('.ui.modal').modal('hide'); return false;">Nevermind</a>
+          <div class="ui error message"></div>
+        </form>
+      </div>
+    </div>
     <script type="text/javascript">
-      (function(){
-          var vectorSource = new ol.source.Vector({
-            //create empty vector
+      $.fn.api.settings.api = {
+        'get markers' : '/api/v0.1.0/markers/0',
+        'post marker' : '/api/v0.1.0/markers'
+      };
+
+      function setFormLatLong(lat, lon) {
+        $('#_where').val(lat + "," + lon);
+      }
+
+      function showDidYouMean() {
+        var query = $('#_where').val().trim();
+        if(query == '') query = 'Percy Page Centre, Edmonton';
+        $.get("https://api.pickpoint.io/v1/forward?key=C1BzxstydPcC8ktRaucy&q=" + encodeURIComponent(query), function(data) {
+          console.log('search results:');
+          console.log(data);
+          $list = $('#_did_you_mean ul');
+          $list.empty();
+          for (var i = 0; i < data.length; i++) {
+            $list.append('<li><a href="#" onclick="setFormLatLong('+data[i].lat+', '+data[i].lon+'); return false;">' + data[i].display_name + '</a></li>')
+          }
+          $('#_did_you_mean').css({
+            display: 'block'
           });
-          
-          //create a bunch of icons and add to source vector
-          //for (var i=0;i<50;i++){
-              var iconFeature = new ol.Feature({
-                geometry: new ol.geom.Point(ol.proj.fromLonLat([-113.49092669999999, 53.544389])),
-                name: 'Theatre Alberta',
-                description: 'Theatre Community Support'
+          return false;
+        }, "json");
+      };
+
+      var validation = {
+        fields: {
+          where: {
+            identifier: 'where',
+            rules: [
+              {
+                type: 'regExp[/^[-+]?([1-8]?\\d(\\.\\d+)?|90(\\.0+)?),\\s*[-+]?(180(\\.0+)?|((1[0-7]\\d)|([1-9]?\\d))(\\.\\d+)?)$/]',
+                prompt: 'Your location needs to be in latitude,longitude format! Use the search button to help you out!'
+              }
+            ]
+          },
+          description: {
+            identifier: 'description',
+            rules: [
+              {
+                type: 'empty',
+                prompt: 'We need to know what you do!'
+              }
+            ]
+          }
+        }
+      };
+
+      $('#_address_search').click(showDidYouMean);
+
+      $('#_get_location').click(function() {
+        if (navigator.geolocation) {
+          console.log('Getting location..');
+          navigator.geolocation.getCurrentPosition(function(position) {
+            console.log('coords:');
+            console.log(position);
+            setFormLatLong(position.coords.latitude, position.coords.longitude);
+          });
+        } else {
+          $('.ui.error.message').append('<p>Your browser doesn\'t support geolocation!</p>');
+        }
+        return false;
+      });
+
+      $('.ui.form').form(validation);
+      $('.ui.form').submit(function(event) {
+        var valid = $('.ui.form').form('validate form');
+        if(!valid) {
+          console.log('invalid form!');
+          showDidYouMean();
+          return false;
+        }
+
+        var name = $('#_name').val();
+        var description = $('#_description').val();
+        var where = $('#_where').val();
+        var latlon = where.split(',');
+        var latitude = latlon[0];
+        var longitude = latlon[1];
+        $('#_lat').val(latitude);
+        $('#_lon').val(longitude);
+        var data = {
+          name: name,
+          description: description,
+          latitude: latitude,
+          longitude: longitude
+        };
+
+        $('.ui.dimmer').dimmer('show');
+
+        $.post("/api/v0.1.0/markers", data, function(results) {
+          console.log('post results:');
+          console.log(results);
+          vectorSource.clear();
+
+          $.get("/api/v0.1.0/markers", function(data) {
+            for (var i = 0; i < data.length; i++) {
+              var feat = new ol.Feature({
+                geometry: new ol.geom.Point(ol.proj.fromLonLat([data[i].longitude, data[i].latitude])),
+                name: data[i].name,
+                description: data[i].description
               });
-              vectorSource.addFeature(iconFeature);
-          //}
+              vectorSource.addFeature(feat);
+            }
+          }, "json");
 
-          //create the style
-          //var col = new ol.Color([109,31,126,1]);
-          var iconStyle = new ol.style.Style({
-            image: new ol.style.Icon(/** @type {olx.style.IconOptions} */ ({
-              anchor: [0.5, 46],
-              anchorXUnits: 'fraction',
-              anchorYUnits: 'pixels',
-              opacity: 0.75,
-              src: 'dot.png',
-            }))
+          $('.ui.dimmer').dimmer('hide');
+          $('.ui.modal').modal('hide');
+        }, "json");
+
+        return false;
+      });
+
+      var vectorSource = new ol.source.Vector({
+        //create empty vector
+      });
+
+      //create the style
+      var iconStyle = new ol.style.Style({
+        image: new ol.style.Icon(({
+          anchor: [0.5, 0.5],
+          opacity: 0.75,
+          src: 'dot.png',
+        }))
+      });
+
+      //add the feature vector to the layer vector, and apply a style to whole layer
+      var vectorLayer = new ol.layer.Vector({
+        source: vectorSource,
+        style: iconStyle
+      });
+
+      var map = new ol.Map({
+        layers: [new ol.layer.Tile({ source: new ol.source.OSM() }), vectorLayer],
+        target: document.getElementById('map'),
+        view: new ol.View({
+          center: ol.proj.fromLonLat([-113.522, 53.542]),
+          zoom: 7
+        })
+      });
+
+      var displayInfo = function(pixel) {
+        var feature = map.forEachFeatureAtPixel(pixel, function(feature, layer) {
+          return feature;
+        });
+        if(feature) {
+          // update the tooltip
+          var name = feature.get('name');
+          var description = feature.get('description');
+          var txt = '<h3>' + description + '</h3>';
+          if(name) txt = '<h3>' + name + '</h3><p>' + description + '</p>';
+
+          $('#tooltip').css({
+            left: (pixel[0] - 20) + 'px',
+            top: pixel[1] + 'px'
           });
-
-
-
-          //add the feature vector to the layer vector, and apply a style to whole layer
-          var vectorLayer = new ol.layer.Vector({
-            source: vectorSource,
-            style: iconStyle
-          });
-
-          var map = new ol.Map({
-            layers: [new ol.layer.Tile({ source: new ol.source.OSM() }), vectorLayer],
-            target: document.getElementById('map'),
-            view: new ol.View({
-              center: ol.proj.fromLonLat([-113.522, 53.542]),
-              zoom: 7
+          $('#tooltip').html(txt);
+          $('#tooltip')
+            .popup({
+              popup: '#tooltip',
+              title: name,
+              content: description,
+              inline: true,
+              position: 'top left'
             })
+            .popup('show');
+        }
+        else {
+          // hide the tooltip
+          $('#tooltip').popup('hide');
+        }
+      }
+
+      map.on('pointermove', function(evt) {
+        if(evt.dragging) {
+          // hide tooltip
+          $('#tooltip').popup('hide');
+          return;
+        }
+        displayInfo(map.getEventPixel(evt.originalEvent));
+      });
+
+      map.on('dblclick', function(evt) {
+        var latlon = ol.proj.transform(evt.coordinate, 'EPSG:3857', 'EPSG:4326');
+        console.log(latlon);
+        $('#_where').val(latlon.reverse().join(','));
+        $('#_description').val();
+        $('#_name').val();
+        $('.ui.modal').modal('show');
+        return false;
+      });
+
+      $.get("/api/v0.1.0/markers", function(data) {
+        for (var i = 0; i < data.length; i++) {
+          var feat = new ol.Feature({
+            geometry: new ol.geom.Point(ol.proj.fromLonLat([data[i].longitude, data[i].latitude])),
+            name: data[i].name,
+            description: data[i].description
           });
-      })();
+          vectorSource.addFeature(feat);
+        }
+      }, "json");
     </script>
   </body>
 </html>
