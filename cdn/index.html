@@ -234,10 +234,11 @@
           $('#tooltip')
             .popup({
               popup: '#tooltip',
-              title: name,
-              content: description,
-              inline: true,
-              position: 'top left'
+              position: 'top left',
+              preserve: true,
+              exclusive: true,
+              jitter: 10,
+              prefer: 'opposite'
             })
             .popup('show');
         }
@@ -248,6 +249,15 @@
       }
 
       map.on('pointermove', function(evt) {
+        if(evt.dragging) {
+          // hide tooltip
+          $('#tooltip').popup('hide');
+          return;
+        }
+        displayInfo(map.getEventPixel(evt.originalEvent));
+      });
+
+      map.on('singleclick', function(evt) {
         if(evt.dragging) {
           // hide tooltip
           $('#tooltip').popup('hide');
