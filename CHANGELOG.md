@@ -1,3 +1,13 @@
+<a name="0.1.2"></a>
+## 0.1.2 (2016-03-16)
+
+
+#### Bug Fixes
+
+*   added label clicking for mobile ([b46019dc](b46019dc))
+
+
+
 <a name="0.1.1"></a>
 ## 0.1.1 (2016-03-16)
 
